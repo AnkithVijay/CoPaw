@@ -4,6 +4,7 @@
 This module provides token counting functionality for estimating
 message token usage with Qwen tokenizer.
 """
+import asyncio
 import logging
 from pathlib import Path
 
@@ -86,14 +87,29 @@ def _extract_text_from_messages(messages: list[dict]) -> str:
     return "\n".join(parts)
 
 
+def _count_message_tokens_sync(messages: list[dict]) -> int:
+    """Synchronous token counting (run off event loop via to_thread).
+
+    Args:
+        messages: List of message dictionaries in chat format.
+
+    Returns:
+        int: The estimated number of tokens in the messages.
+    """
+    token_counter = _get_token_counter()
+    text = _extract_text_from_messages(messages)
+    token_ids = token_counter.tokenizer.encode(text)
+    return len(token_ids)
+
+
 async def count_message_tokens(
     messages: list[dict],
 ) -> int:
     """Count tokens in messages using the tokenizer.
 
     Extracts text content from messages and uses the tokenizer to
-    count tokens. This approach is more robust across different model
-    types than using apply_chat_template directly.
+    count tokens. Runs in a thread so tokenizer load/encode do not
+    block the event loop (avoids freezing follow-up messages).
 
     Args:
         messages: List of message dictionaries in chat format.
@@ -104,10 +120,7 @@ async def count_message_tokens(
     Raises:
         RuntimeError: If token counter fails to initialize.
     """
-    token_counter = _get_token_counter()
-    text = _extract_text_from_messages(messages)
-    token_ids = token_counter.tokenizer.encode(text)
-    token_count = len(token_ids)
+    token_count = await asyncio.to_thread(_count_message_tokens_sync, messages)
     logger.debug(
         "Counted %d tokens in %d messages",
         token_count,

@@ -89,7 +89,9 @@ async def microsandbox_python(
     code: str,
     name: str = "copaw-python",
 ) -> ToolResponse:
-    """Execute Python code inside a Microsandbox PythonSandbox.
+    """Use this tool when the user asks you to create, run, or build something in Python.
+    Do NOT reply with code or steps for the user to run—call this tool to run the code,
+    then report the result. Execute Python code inside a Microsandbox PythonSandbox.
 
     Args:
         code: Python source code to execute inside the sandbox.

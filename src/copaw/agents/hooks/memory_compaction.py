@@ -5,6 +5,7 @@ This hook monitors token usage and automatically compacts older messages
 when the context window approaches its limit, preserving recent messages
 and the system prompt.
 """
+import asyncio
 import logging
 import os
 from typing import TYPE_CHECKING, Any
@@ -24,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 # Default max length for tool result text truncation during compaction
 _DEFAULT_COMPACT_TOOL_RESULT_MAX_LENGTH = 10000
+
+# Max time to wait for memory compaction LLM call (avoids stuck follow-ups)
+_MEMORY_COMPACT_TIMEOUT_SECONDS = 90
 
 
 def _truncate_tool_result_texts(
@@ -182,10 +186,20 @@ class MemoryCompactionHook:
                     messages=messages_to_compact,
                 )
 
-                compact_content = await self.memory_manager.compact_memory(
-                    messages_to_summarize=messages_to_compact,
-                    previous_summary=agent.memory.get_compressed_summary(),
-                )
+                try:
+                    compact_content = await asyncio.wait_for(
+                        self.memory_manager.compact_memory(
+                            messages_to_summarize=messages_to_compact,
+                            previous_summary=agent.memory.get_compressed_summary(),
+                        ),
+                        timeout=_MEMORY_COMPACT_TIMEOUT_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "Memory compaction timed out after %ds; skipping this turn",
+                        _MEMORY_COMPACT_TIMEOUT_SECONDS,
+                    )
+                    return None
 
                 await agent.memory.update_compressed_summary(compact_content)
                 updated_count = await agent.memory.update_messages_mark(

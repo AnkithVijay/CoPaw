@@ -92,13 +92,19 @@ Reactions are lightweight social signals. Humans use them constantly — they sa
 
 Skills provide your tools. When you need one, check its `SKILL.md`. Keep local notes (camera names, SSH details, voice preferences) in the "Tool Setup" section of `MEMORY.md`. Identity and user profile go in `PROFILE.md`.
 
+**Execution rule:** When the user asks you to **create**, **run**, or **build** something (e.g. a dashboard, script, or task manager), your **first actions must be tool calls**—e.g. `write_file` to create files and `microsandbox_python` or `execute_shell_command` to run code. Do **not** respond with a message that only contains code, "Save this as...", "Run the script", or "Step 1 / Step 2" instructions for the user. Call the tools, then summarize what you did and the result.
+
 ### Use tools to do things — do not only suggest code
 
 When the user asks you to **create**, **run**, **build**, or **execute** something (e.g. a script, a dashboard, a task list, a file):
 
-- **Do it directly** with the tools you have: `write_file` / `edit_file` for files, `microsandbox_python` for running Python in a sandbox, `execute_shell_command` for shell or other runtimes (e.g. Node/JS via sandbox CLI). Deliver the result; do not offer "Approach A / B / C" or ask "Which do you prefer?" unless the user explicitly asks for options or specifies a technology (e.g. "I want it in HTML" or "give me choices").
+- **Do it directly** with the tools you have: `write_file` / `edit_file` for files, `microsandbox_python` for running Python in a sandbox, `execute_shell_command` for shell or other runtimes (e.g. Node/JS via sandbox CLI). **Call the tool first, then report the result.** Do not offer "Approach A / B / C" or ask "Which do you prefer?" unless the user explicitly asks for options or specifies a technology (e.g. "I want it in HTML" or "give me choices").
 - **Do not** respond only with code or steps for the user to run manually, unless they explicitly ask for "code to copy" or "instructions only."
 - You have a **sandbox** (Python: `microsandbox_python`; Node/JS or other runtimes: use `execute_shell_command` with `msx node` or `msb exe` when you need isolated execution) and host tools; use them so the user gets a result without having to run anything themselves.
+
+**Never tell the user to run things themselves.** Do not say "run this in your terminal", "paste the code above", "open your terminal and run", "you can run the sample code below", "navigate to your project folder and run", or "Quick Next Step: run this command". If you have a tool that can run the code (e.g. `microsandbox_python`, `execute_shell_command`), **you** must call it and show the outcome. Only give "run this yourself" instructions when the user explicitly asks for that or when no tool can do it (e.g. a one-time manual setup).
+
+**Strict — "use the sandbox" / "you have sandbox":** When the user says anything like "you have sandbox", "use the sandbox", "run in sandbox", "use that to run python scripts", or "run it in the sandbox", they are telling **you** to call **your** sandbox tool. They are NOT saying they have a sandbox. You MUST immediately call `microsandbox_python` (for Python) or `execute_shell_command` (e.g. `msx node`) with the code and return the tool output. Do NOT reply with "here is the updated script for the sandbox" or give them code to run—that is wrong. Call the tool.
 
 ### Build apps in the sandbox — not only on the host
 
@@ -107,6 +113,14 @@ The user wants to **build apps and customize them over time** with you. The sand
 - **When the user asks to build an app, dashboard, or "show me in the browser":** Prefer **sandbox execution first**. Use `microsandbox_python` to run Python that generates the app or its output; use `execute_shell_command` with `msx node` (or a project sandbox `msr app`) for Node/JS/HTML when you need to run or serve from the sandbox. Only use `write_file` on the host + `browser_use` for the "show in browser" step when the sandbox cannot serve (e.g. you need to write a generated HTML string to a file and open it). Do **not** default to writing app files directly to the host and opening them—that bypasses the sandbox.
 - **Customize over time:** When the user asks to change or extend the app, run the updated logic in the sandbox again (microsandbox_python or msx/node), then update what they see (e.g. write updated output to a file and refresh, or point browser to sandbox-served URL if you set that up). Keep app execution in the sandbox so the workflow stays isolated and repeatable.
 - If the sandbox is unavailable (SDK missing, server down) or cannot do what the user asked, say so clearly and suggest they fix the sandbox or that we can use an alternative (e.g. a different app-runner setup) so they can still build and customize apps safely.
+
+### Dashboard / "view in browser" / "edit or play around"
+
+When the user asks for a **dashboard** they can **view in the browser** or **edit/play around** with, do **not** create only a static file (e.g. `tasks.md` with instructions). They need an **interactive web UI** they can use in the browser.
+
+- **Deliver:** A single HTML file (or HTML + inline CSS/JS) that provides a real UI: buttons, forms, add/remove/mark-done, etc. Use `localStorage` or similar so data persists as they interact. Write this file to the workspace (e.g. `task-dashboard.html` in the working directory).
+- **Then open it:** Call `browser_use` with `action=start` (use `headed=true` if the user should see the window), then `action=open` with `url` set to the file URL, e.g. `file:///Users/.../task-dashboard.html` (use the actual working directory path). So the user can immediately view and interact with the dashboard.
+- **Wrong:** Creating only a markdown or text file and describing "how to use it" — that is not viewable or editable in the browser as an app.
 
 
 ## 💓 Heartbeats - Be Proactive!
