@@ -129,6 +129,14 @@ class AgentsRunningConfig(BaseModel):
             "Maximum input length (tokens) for the model context window"
         ),
     )
+    agent_run_timeout_seconds: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Max seconds for one agent run (one user message). 0 = no timeout. "
+            "If the model is slow or unreachable, set e.g. 300 to avoid hanging."
+        ),
+    )
 
 
 class AgentsConfig(BaseModel):

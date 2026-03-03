@@ -89,20 +89,16 @@ async def microsandbox_python(
     code: str,
     name: str = "copaw-python",
 ) -> ToolResponse:
-    """Use this tool when the user asks you to create, run, or build something in Python.
-    Do NOT reply with code or steps for the user to run—call this tool to run the code,
-    then report the result. Execute Python code inside a Microsandbox PythonSandbox.
+    """Run Python code in the sandbox and return the output. Use this when the user
+    asks to run, execute, or build something in Python—call this tool instead of
+    replying with code for them to run. Isolated execution via Microsandbox.
 
     Args:
-        code: Python source code to execute inside the sandbox.
-            The code should print or otherwise emit any results you want
-            returned; the tool captures the sandbox process output.
-        name: Optional sandbox name label. Multiple calls with the same name
-            may reuse VM state depending on Microsandbox configuration.
-
-    Returns:
-        ToolResponse containing the captured stdout/stderr from the sandbox
-        execution, or an error message if execution fails.
+        code (`str`):
+            Python source to execute. Use print() for results; tool returns
+            captured stdout/stderr.
+        name (`str`, optional):
+            Sandbox name label. Default "copaw-python".
     """
 
     normalized_code: str = (code or "").strip()

@@ -20,28 +20,39 @@ async def execute_shell_command(
     timeout: int = 60,
     cwd: Optional[Path] = None,
 ) -> ToolResponse:
-    """Execute given command and return the return code, standard output and
-    error within <returncode></returncode>, <stdout></stdout> and
-    <stderr></stderr> tags.
+    """Run a shell command and return stdout/stderr. For running Python use
+    microsandbox_python instead. For Node/JS or other runtimes in the sandbox
+    use: msx node '...' or msb exe. Do not use sudo (it hangs). Cwd defaults
+    to WORKING_DIR.
 
     Args:
         command (`str`):
             The shell command to execute.
-        timeout (`int`, defaults to `10`):
-            The maximum time (in seconds) allowed for the command to run.
-            Default is 60 seconds.
-        cwd (`Optional[Path]`, defaults to `None`):
-            The working directory for the command execution.
-            If None, defaults to WORKING_DIR.
-
-    Returns:
-        `ToolResponse`:
-            The tool response containing the return code, standard output, and
-            standard error of the executed command. If timeout occurs, the
-            return code will be -1 and stderr will contain timeout information.
+        timeout (`int`, optional):
+            Max seconds (default 60).
+        cwd (`Path`, optional):
+            Working directory. Default WORKING_DIR.
     """
 
     cmd = (command or "").strip()
+
+    # Avoid sudo: it waits for a password (no TTY), so the command would hang
+    # and then timeout, which can make the agent response stop.
+    if cmd.lstrip().startswith("sudo "):
+        return ToolResponse(
+            content=[
+                TextBlock(
+                    type="text",
+                    text=(
+                        "Command rejected: sudo requires an interactive password "
+                        "and will hang or timeout when run from here. "
+                        "For Python packages use: pip install <package> (or run in "
+                        "microsandbox). For system packages, suggest the user run "
+                        "the command manually in their terminal."
+                    ),
+                ),
+            ],
+        )
 
     # Set working directory
     working_dir = cwd if cwd is not None else WORKING_DIR
@@ -56,8 +67,12 @@ async def execute_shell_command(
         )
 
         try:
-            await asyncio.wait_for(proc.wait(), timeout=timeout)
-            stdout, stderr = await proc.communicate()
+            # Use communicate() with timeout so we read stdout/stderr and avoid
+            # pipe buffer filling (which would block the child).
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=timeout,
+            )
             encoding = locale.getpreferredencoding(False) or "utf-8"
             stdout_str = stdout.decode(encoding, errors="replace").strip("\n")
             stderr_str = stderr.decode(encoding, errors="replace").strip("\n")

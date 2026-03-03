@@ -115,8 +115,8 @@ class CoPawAgent(ReActAgent):
         # Load and register skills
         self._register_skills(toolkit)
 
-        # Build system prompt
-        sys_prompt = self._build_sys_prompt()
+        # Build system prompt (include skill instructions from SKILL.md files)
+        sys_prompt = self._build_sys_prompt(toolkit=toolkit)
 
         # Create model and formatter using factory method
         model, formatter = create_model_and_formatter()
@@ -184,6 +184,11 @@ class CoPawAgent(ReActAgent):
             edit_file,
             namesake_strategy=namesake_strategy,
         )
+        # Sandbox right after file tools so the agent sees "write file" and "run in sandbox" together
+        toolkit.register_tool_function(
+            microsandbox_python,
+            namesake_strategy=namesake_strategy,
+        )
         toolkit.register_tool_function(
             browser_use,
             namesake_strategy=namesake_strategy,
@@ -198,10 +203,6 @@ class CoPawAgent(ReActAgent):
         )
         toolkit.register_tool_function(
             get_current_time,
-            namesake_strategy=namesake_strategy,
-        )
-        toolkit.register_tool_function(
-            microsandbox_python,
             namesake_strategy=namesake_strategy,
         )
 
@@ -232,8 +233,13 @@ class CoPawAgent(ReActAgent):
                         e,
                     )
 
-    def _build_sys_prompt(self) -> str:
-        """Build system prompt from working dir files and env context.
+    def _build_sys_prompt(self, toolkit: Optional[Toolkit] = None) -> str:
+        """Build system prompt from working dir files, env context, and skills.
+
+        Args:
+            toolkit: Optional toolkit (used during __init__ when self.toolkit
+                is not set yet). If None, uses self.toolkit so skill prompt
+                is included when rebuilding.
 
         Returns:
             Complete system prompt string
@@ -241,6 +247,12 @@ class CoPawAgent(ReActAgent):
         sys_prompt = build_system_prompt_from_working_dir()
         if self._env_context is not None:
             sys_prompt = self._env_context + "\n\n" + sys_prompt
+        kit = toolkit if toolkit is not None else getattr(self, "toolkit", None)
+        if kit is not None:
+            skill_prompt = kit.get_agent_skill_prompt()
+            if skill_prompt and skill_prompt.strip():
+                sys_prompt = sys_prompt + "\n\n" + skill_prompt.strip()
+                logger.debug("Appended agent skill prompt to system prompt")
         return sys_prompt
 
     def _setup_memory_manager(

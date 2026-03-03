@@ -130,6 +130,11 @@ class MemoryCompactionHook:
                 exclude_mark=_MemoryMark.COMPRESSED,
                 prepend_summary=False,
             )
+            if len(messages) > self.keep_recent:
+                logger.info(
+                    "Memory compaction hook: checking token count (messages=%d)...",
+                    len(messages),
+                )
 
             logger.debug(f"===last message===: {messages[-1]}")
 

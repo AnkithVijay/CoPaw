@@ -105,6 +105,7 @@ class AgentRunner(Runner):
             )
             await agent.register_mcp_clients()
             agent.set_console_output_enabled(enabled=False)
+            logger.info("Agent created, loading session state...")
 
             logger.debug(
                 f"Agent Query msgs {msgs}",
@@ -131,21 +132,45 @@ class AgentRunner(Runner):
                 user_id=user_id,
                 agent=agent,
             )
+            logger.info("Session state loaded, rebuilding system prompt...")
 
             # Rebuild system prompt so it always reflects the latest
             # AGENTS.md / SOUL.md / PROFILE.md, not the stale one saved
             # in the session state.
             agent.rebuild_sys_prompt()
 
+            timeout_sec = config.agents.running.agent_run_timeout_seconds
+            if timeout_sec > 0:
+                logger.info(
+                    "System prompt ready, starting agent run (timeout=%ds; may wait on model)...",
+                    timeout_sec,
+                )
+
+                async def _run_with_timeout():
+                    return await asyncio.wait_for(agent(msgs), timeout=timeout_sec)
+
+                coroutine_task = _run_with_timeout()
+            else:
+                logger.info(
+                    "System prompt ready, starting agent run (no timeout; may wait on model)..."
+                )
+                coroutine_task = agent(msgs)
+
             async for msg, last in stream_printing_messages(
                 agents=[agent],
-                coroutine_task=agent(msgs),
+                coroutine_task=coroutine_task,
             ):
                 yield msg, last
 
         except asyncio.CancelledError:
             if agent is not None:
                 await agent.interrupt()
+            raise
+        except asyncio.TimeoutError:
+            logger.error(
+                "Agent run timed out after %ds. The model may be cold, slow, or unreachable (check Ollama/API).",
+                config.agents.running.agent_run_timeout_seconds,
+            )
             raise
         except Exception as e:
             debug_dump_path = write_query_error_dump(
