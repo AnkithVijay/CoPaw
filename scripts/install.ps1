@@ -260,6 +260,24 @@ if (-not (Test-Path $VenvCopaw)) { Stop-WithError "Installation failed: copaw CL
 
 Write-Info "CoPaw installed successfully"
 
+# ── Step 3b: Install Microsandbox (Python SDK) ───────────────────────────────
+# Install the microsandbox Python SDK into the CoPaw virtual environment so
+# sandbox-aware skills/tools can use it. The microsandbox CLI (msb) has its own
+# installer; see https://github.com/zerocore-ai/microsandbox for details.
+Write-Info "Installing microsandbox Python SDK into CoPaw environment..."
+try {
+    & $VenvPython -m pip install microsandbox -q
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "Failed to install microsandbox Python SDK automatically."
+        Write-Warn "You can install it manually with: pip install microsandbox"
+    } else {
+        Write-Info "microsandbox Python SDK installed."
+    }
+} catch {
+    Write-Warn "Exception while installing microsandbox Python SDK: $($_.Exception.Message)"
+    Write-Warn "You can install it manually with: pip install microsandbox"
+}
+
 # Check console availability (for PyPI installs, check the installed package)
 if (-not $script:ConsoleAvailable) {
     $consoleCheck = & $VenvPython -c "import importlib.resources, copaw; p=importlib.resources.files('copaw')/'console'/'index.html'; print('yes' if p.is_file() else 'no')" 2>&1

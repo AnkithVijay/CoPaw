@@ -225,6 +225,30 @@ fi
 [ -x "$COPAW_VENV/bin/copaw" ] || die "Installation failed: copaw CLI not found in venv"
 info "CoPaw installed successfully"
 
+# ── Step 3b: Install Microsandbox (Python SDK + optional CLI) ────────────────
+# Install the microsandbox Python SDK into the CoPaw virtual environment so
+# sandbox-aware skills/tools can use it.
+info "Installing microsandbox Python SDK into CoPaw environment..."
+if ! "$COPAW_VENV/bin/python" -m pip install --quiet microsandbox; then
+    warn "Failed to install microsandbox Python SDK automatically."
+    warn "You can install it manually with: pip install microsandbox"
+else
+    info "microsandbox Python SDK installed."
+fi
+
+# On macOS/Linux, also install the microsandbox CLI (msb) if it is not present.
+if ! command -v msb >/dev/null 2>&1; then
+    info "Installing microsandbox CLI (msb)..."
+    if ! curl -sSL https://get.microsandbox.dev | sh; then
+        warn "Failed to install microsandbox CLI automatically."
+        warn "See https://github.com/zerocore-ai/microsandbox for manual install instructions."
+    else
+        info "microsandbox CLI (msb) installed."
+    fi
+else
+    info "microsandbox CLI (msb) already present, skipping install."
+fi
+
 # Check console availability (for PyPI installs, check the installed package)
 if [ "$_CONSOLE_AVAILABLE" = 0 ]; then
     # Check if console assets were included in the installed package
