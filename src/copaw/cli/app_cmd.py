@@ -3,13 +3,43 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
+import subprocess
 
 import click
 import uvicorn
 
 from ..constant import LOG_LEVEL_ENV
 from ..config.utils import write_last_api
-from ..utils.logging import setup_logger, SuppressPathAccessLogFilter
+from ..utils.logging import SuppressPathAccessLogFilter, setup_logger
+
+
+def _ensure_microsandbox_server() -> None:
+    """Best-effort start of Microsandbox server for sandbox tools.
+
+    If the `msb` CLI is available, this will spawn:
+
+        msb server start --dev
+
+    as a background process. Any failures are logged and ignored so CoPaw can
+    still start normally even if Microsandbox is not installed or misconfigured.
+    """
+    logger = logging.getLogger(__name__)
+
+    msb_path = shutil.which("msb")
+    if msb_path is None:
+        logger.debug("Microsandbox CLI 'msb' not found on PATH; skipping start.")
+        return
+
+    try:
+        subprocess.Popen(  # noqa: S603,S607
+            [msb_path, "server", "start", "--dev"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        logger.info("Microsandbox server start requested via 'msb server start --dev'.")
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("Failed to start Microsandbox server: %s", exc)
 
 
 @click.command("app")
@@ -74,6 +104,10 @@ def app_cmd(
         logging.getLogger("uvicorn.access").addFilter(
             SuppressPathAccessLogFilter(paths),
         )
+
+    # Best-effort: ensure Microsandbox server is running so sandbox tools
+    # (e.g. microsandbox_python) are ready when the agent starts using them.
+    _ensure_microsandbox_server()
 
     uvicorn.run(
         "copaw.app._app:app",
