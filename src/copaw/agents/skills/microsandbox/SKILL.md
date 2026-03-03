@@ -98,3 +98,46 @@ If you are unsure and the user emphasizes safety or isolation, **default to `mic
 
 If you encounter repeated failures due to missing dependencies or server issues, explain the limitation to the user and suggest checking the Microsandbox installation and `msb server` status.
 
+---
+
+## Project Sandboxes and Reusable Environments
+
+Microsandbox also supports **project-based sandboxes** with persistent environments, similar to a dev container that you can reuse across runs. Use these when you want the same sandbox (packages, files, state) to be available over time instead of a one-off `PythonSandbox`.
+
+### 1. Initialize a project sandbox (once per project)
+
+Use `execute_shell_command` to run the Microsandbox CLI in the CoPaw working directory:
+
+```bash
+msb init
+msb add app \
+  --image python \
+  --cpus 1 \
+  --memory 1024 \
+  --start 'python -c "print(\"hello from project sandbox\")"'
+```
+
+This creates a `Sandboxfile` and an `app` sandbox definition. All sandbox state for the project (installed packages, files created in the sandbox) is persisted under `./menv`.
+
+### 2. Run the project sandbox (reusable)
+
+To reuse the same environment later, call:
+
+```bash
+msr app         # or: msb run --sandbox app
+```
+
+Use `execute_shell_command` to run these commands when you need to:
+
+- Install dependencies inside the sandbox (e.g., `pip install` inside the sandbox image).
+- Run long-lived services or scripts whose environment you want to preserve.
+
+### 3. How this relates to Git
+
+- Keep **source code and versioning** in a Git repository on the host (normal CoPaw workspace).
+- Use Microsandbox project sandboxes to provide a **persistent, isolated runtime** (`Sandboxfile` + `./menv`).
+- When asked to create or reuse a sandboxed environment, prefer:
+  - Project sandboxes (`msb init`, `msb add`, `msr app`) for **long-lived, reusable setups**.
+  - `microsandbox_python` for **quick, stateless Python execution** where you only need code → output.
+
+
