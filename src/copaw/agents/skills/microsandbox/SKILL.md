@@ -18,6 +18,8 @@ metadata:
 
 **When the user asks you to run or execute code, use your tools to do it — do not offer "Approach A / B / C" or ask "Which do you prefer?"** Use `microsandbox_python` for Python; for Node/JavaScript or other runtimes use `execute_shell_command` with the Microsandbox CLI (e.g. `msx node`). Deliver the result directly unless the user explicitly asks for options or a specific technology (e.g. "I want HTML").
 
+**For "build an app" or "show me in the browser":** Run app logic **in the sandbox**, not only by writing files on the host. Use `microsandbox_python` to generate or run the app (e.g. output HTML/JSON); use `execute_shell_command` with `msx node` or a project sandbox (`msr app`) for Node/JS apps. Only use host `write_file` + `browser_use` when you must (e.g. write generated HTML to a file and open it because the sandbox cannot serve a URL). Do **not** default to writing app files to the host and opening them—that bypasses the sandbox. The goal is to build and customize apps over time with execution isolated in the sandbox.
+
 **Microsandbox is not limited to Python.** It can run Node/JavaScript, and other runtimes via OCI images. For Python you have the **`microsandbox_python`** tool. For JavaScript/Node or other runtimes, use **`execute_shell_command`** with `msx node` (or `msb exe --image node`) to run code in a sandbox when you need isolated execution.
 
 Use this skill to run code inside a hardware-isolated Microsandbox microVM, **not** directly on the host. Prefer this whenever the code is:

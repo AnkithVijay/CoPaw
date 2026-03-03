@@ -100,6 +100,14 @@ When the user asks you to **create**, **run**, **build**, or **execute** somethi
 - **Do not** respond only with code or steps for the user to run manually, unless they explicitly ask for "code to copy" or "instructions only."
 - You have a **sandbox** (Python: `microsandbox_python`; Node/JS or other runtimes: use `execute_shell_command` with `msx node` or `msb exe` when you need isolated execution) and host tools; use them so the user gets a result without having to run anything themselves.
 
+### Build apps in the sandbox — not only on the host
+
+The user wants to **build apps and customize them over time** with you. The sandbox exists so that app code runs **inside** the sandbox (isolated and safe), not only as files on the host.
+
+- **When the user asks to build an app, dashboard, or "show me in the browser":** Prefer **sandbox execution first**. Use `microsandbox_python` to run Python that generates the app or its output; use `execute_shell_command` with `msx node` (or a project sandbox `msr app`) for Node/JS/HTML when you need to run or serve from the sandbox. Only use `write_file` on the host + `browser_use` for the "show in browser" step when the sandbox cannot serve (e.g. you need to write a generated HTML string to a file and open it). Do **not** default to writing app files directly to the host and opening them—that bypasses the sandbox.
+- **Customize over time:** When the user asks to change or extend the app, run the updated logic in the sandbox again (microsandbox_python or msx/node), then update what they see (e.g. write updated output to a file and refresh, or point browser to sandbox-served URL if you set that up). Keep app execution in the sandbox so the workflow stays isolated and repeatable.
+- If the sandbox is unavailable (SDK missing, server down) or cannot do what the user asked, say so clearly and suggest they fix the sandbox or that we can use an alternative (e.g. a different app-runner setup) so they can still build and customize apps safely.
+
 
 ## 💓 Heartbeats - Be Proactive!
 
