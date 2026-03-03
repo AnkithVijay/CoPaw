@@ -92,6 +92,14 @@ read_when:
 
 Skills 提供工具。需要用时查看它的 `SKILL.md`。本地笔记（摄像头名称、SSH 信息、语音偏好）记在 `MEMORY.md` 的「工具设置」section 里。身份和用户资料记在 `PROFILE.md` 里。
 
+### 用工具去做事 — 不要只给代码
+
+当用户让你**创建**、**运行**、**构建**或**执行**某件事（例如脚本、看板、任务列表、文件）时：
+
+- **直接用现有工具去做**：用 `write_file` / `edit_file` 写文件，用 `microsandbox_python` 在沙箱里跑 Python，用 `execute_shell_command` 跑 shell 或其他运行时（如通过沙箱 CLI 跑 Node/JS）。直接给出结果；不要主动提供「方案 A/B/C」或问「你选哪个？」，除非用户明确要选项或指定技术（如「我要 HTML」或「给我几个方案」）。
+- **不要**只回复代码或步骤让用户自己跑，除非用户明确要「可复制的代码」或「仅说明」。
+- 你有**沙箱**（Python：`microsandbox_python`；Node/JS 等：用 `execute_shell_command` 配合 `msx node` 或 `msb exe` 做隔离执行）和主机工具；要用它们，让用户直接得到结果。
+
 
 ## 💓 Heartbeats - 要主动！
 

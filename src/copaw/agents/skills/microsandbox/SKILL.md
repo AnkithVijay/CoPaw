@@ -14,15 +14,19 @@ metadata:
   }
 ---
 
-# Microsandbox Skill (Isolated Python Execution)
+# Microsandbox Skill (Isolated Execution)
 
-Use this skill to run Python code inside a hardware-isolated Microsandbox microVM, **not** directly on the host. Prefer this whenever the code is:
+**When the user asks you to run or execute code, use your tools to do it — do not offer "Approach A / B / C" or ask "Which do you prefer?"** Use `microsandbox_python` for Python; for Node/JavaScript or other runtimes use `execute_shell_command` with the Microsandbox CLI (e.g. `msx node`). Deliver the result directly unless the user explicitly asks for options or a specific technology (e.g. "I want HTML").
+
+**Microsandbox is not limited to Python.** It can run Node/JavaScript, and other runtimes via OCI images. For Python you have the **`microsandbox_python`** tool. For JavaScript/Node or other runtimes, use **`execute_shell_command`** with `msx node` (or `msb exe --image node`) to run code in a sandbox when you need isolated execution.
+
+Use this skill to run code inside a hardware-isolated Microsandbox microVM, **not** directly on the host. Prefer this whenever the code is:
 
 - Coming from untrusted input (user-provided scripts, snippets from the web, etc.).
 - Manipulating files or data that should stay inside a sandbox.
 - Experimental or potentially dangerous (shelling out, network access, etc.).
 
-The tool exposed by this skill is **`microsandbox_python`**.
+Tools: **`microsandbox_python`** (Python); for JS/Node/other use **`execute_shell_command`** with `msx <image>` (e.g. `msx node`).
 
 ---
 

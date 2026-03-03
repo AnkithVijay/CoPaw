@@ -6,10 +6,83 @@ These tools delegate execution of untrusted Python code to Microsandbox
 microVM instead of the main CoPaw process.
 """
 
-from typing import Optional
+from __future__ import annotations
+
+import logging
+import subprocess
+import sys
+from typing import Optional, Tuple, Type
 
 from agentscope.message import TextBlock
 from agentscope.tool import ToolResponse
+
+
+logger = logging.getLogger(__name__)
+
+
+def _ensure_microsandbox() -> Tuple[Optional[Type[object]], Optional[str]]:
+    """Ensure the Microsandbox Python SDK is available.
+
+    Returns:
+        (PythonSandbox class or None, error message or None).
+
+    Behavior:
+        - Try to import `microsandbox.PythonSandbox`.
+        - On ImportError, attempt to install `microsandbox` into the current
+          Python environment via `pip`, then retry the import.
+        - If installation or re-import fails, return (None, error_message).
+    """
+    # First attempt: import without installing
+    try:
+        from microsandbox import PythonSandbox  # type: ignore[import]
+
+        return PythonSandbox, None
+    except ImportError:
+        logger.info(
+            "Microsandbox Python SDK not found; attempting automatic install "
+            "via 'pip install microsandbox'.",
+        )
+
+    # Best-effort installation into the current environment
+    try:
+        subprocess.check_call(  # noqa: S603,S607
+            [sys.executable, "-m", "pip", "install", "microsandbox"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning("Failed to install Microsandbox Python SDK: %s", exc)
+        return (
+            None,
+            (
+                "Microsandbox Python SDK is not available in this environment.\n"
+                "Automatic installation with 'pip install microsandbox' "
+                "failed.\n"
+                f"Error: {exc}"
+            ),
+        )
+
+    # Retry import after installation
+    try:
+        from microsandbox import PythonSandbox  # type: ignore[import]
+
+        logger.info("Microsandbox Python SDK installed and imported successfully.")
+        return PythonSandbox, None
+    except ImportError as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Microsandbox Python SDK still not importable after installation: %s",
+            exc,
+        )
+        return (
+            None,
+            (
+                "Microsandbox Python SDK is still not available after an "
+                "automatic installation attempt.\n"
+                "Please install it manually inside the CoPaw environment with:\n"
+                "    pip install microsandbox\n"
+                "Then restart CoPaw and try again."
+            ),
+        )
 
 
 async def microsandbox_python(
@@ -41,27 +114,23 @@ async def microsandbox_python(
             ],
         )
 
-    try:
-        # Import here so CoPaw can still run when microsandbox is not installed.
-        from microsandbox import PythonSandbox  # type: ignore[import]
-    except ImportError:
+    python_sandbox_cls, error_msg = _ensure_microsandbox()
+    if python_sandbox_cls is None:
         return ToolResponse(
             content=[
                 TextBlock(
                     type="text",
-                    text=(
-                        "Microsandbox Python SDK is not available in this "
-                        "environment.\n"
-                        "Install it inside the CoPaw virtual environment with:\n"
-                        "    pip install microsandbox\n"
-                        "Then restart CoPaw and try again."
+                    text=error_msg
+                    or (
+                        "Microsandbox Python SDK is not available and could "
+                        "not be installed automatically.",
                     ),
                 ),
             ],
         )
 
     try:
-        async with PythonSandbox.create(name=name) as sandbox:
+        async with python_sandbox_cls.create(name=name) as sandbox:  # type: ignore[attr-defined]
             exec_result = await sandbox.run(normalized_code)
             output: Optional[str] = await exec_result.output()
 
