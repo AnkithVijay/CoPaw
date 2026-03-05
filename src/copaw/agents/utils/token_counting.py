@@ -58,6 +58,7 @@ def _get_token_counter():
 
 def _extract_text_from_messages(messages: list[dict]) -> str:
     """Extract text content from messages and concatenate into a string.
+    NOTE: This code is deprecated and will be removed in the future.
 
     Handles various message formats:
     - Simple string content: {"role": "user", "content": "hello"}
@@ -87,19 +88,54 @@ def _extract_text_from_messages(messages: list[dict]) -> str:
     return "\n".join(parts)
 
 
-def _count_message_tokens_sync(messages: list[dict]) -> int:
-    """Synchronous token counting (run off event loop via to_thread).
+# pylint: disable=too-many-branches,too-many-nested-blocks
+def _extract_text_from_messages_v2(
+    messages: list[dict],
+) -> str:
+    """Extract text content from messages and concatenate into a string.
+
+    Handles various message formats:
+    - Simple string content: {"role": "user", "content": "hello"}
+    - List content with text blocks:
+      {"role": "user", "content": [{"type": "text", "text": "hello"}]}
+    - List content with tool_result blocks:
+      {"role": "user", "content": [{"type": "tool_result", "output": "..."}]}
 
     Args:
         messages: List of message dictionaries in chat format.
 
     Returns:
-        int: The estimated number of tokens in the messages.
+        str: Concatenated text content from all messages.
     """
-    token_counter = _get_token_counter()
-    text = _extract_text_from_messages(messages)
-    token_ids = token_counter.tokenizer.encode(text)
-    return len(token_ids)
+    parts = []
+    for msg in messages:
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            parts.append(content)
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict):
+                    block_type = block.get("type", "")
+                    if block_type == "tool_result":
+                        output = block.get("output", "")
+                        if isinstance(output, str) and output:
+                            parts.append(output)
+                        elif isinstance(output, list):
+                            for sub in output:
+                                if isinstance(sub, dict):
+                                    sub_text = sub.get("text") or sub.get(
+                                        "content",
+                                        "",
+                                    )
+                                    if sub_text:
+                                        parts.append(str(sub_text))
+                    else:
+                        text = block.get("text") or block.get("content", "")
+                        if text:
+                            parts.append(str(text))
+                elif isinstance(block, str):
+                    parts.append(block)
+    return "\n".join(parts)
 
 
 async def count_message_tokens(
@@ -120,7 +156,10 @@ async def count_message_tokens(
     Raises:
         RuntimeError: If token counter fails to initialize.
     """
-    token_count = await asyncio.to_thread(_count_message_tokens_sync, messages)
+    token_counter = _get_token_counter()
+    text = _extract_text_from_messages_v2(messages)
+    token_ids = token_counter.tokenizer.encode(text)
+    token_count = len(token_ids)
     logger.debug(
         "Counted %d tokens in %d messages",
         token_count,
@@ -148,7 +187,7 @@ async def safe_count_message_tokens(
         return await count_message_tokens(messages)
     except Exception as e:
         # Fallback to character-based estimation
-        text = _extract_text_from_messages(messages)
+        text = _extract_text_from_messages_v2(messages)
         estimated_tokens = len(text) // 4
         logger.warning(
             "Failed to count tokens: %s, using estimated_tokens=%d",
